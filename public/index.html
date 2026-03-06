@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineCult - Clássicos do Cinema</title>
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Courier+Prime&display=swap" rel="stylesheet">
+
+    <style>
+        /* Paleta Retrô: Fundo escuro, veludo vermelho e dourado */
+        body { 
+            margin: 0; 
+            background-color: #080808; 
+            color: #eaddc5; /* Off-white amarelado (papel antigo) */
+            font-family: 'Courier Prime', monospace; 
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+
+        /* Lado do Vídeo */
+        #cinema-container { 
+            flex: 3; 
+            position: relative; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            /* Gradiente simulando a iluminação central da tela no escuro */
+            background: radial-gradient(circle, #2a0b0b 0%, #050505 100%); 
+            border-right: 4px solid #c5a059; 
+        }
+        
+        video { 
+            width: 100%; 
+            max-height: 100vh; 
+            outline: none; 
+            /* Sombra projetada para dar volume à tela */
+            box-shadow: 0 0 40px rgba(0,0,0,0.9);
+        }
+
+        /* Botão de Tela Cheia flutuante */
+        #btn-fullscreen {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(10, 10, 10, 0.7);
+            color: #c5a059;
+            border: 1px solid #c5a059;
+            padding: 8px 15px;
+            font-family: 'Cinzel', serif;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 5;
+            transition: 0.3s;
+        }
+        #btn-fullscreen:hover {
+            background: #c5a059;
+            color: #080808;
+        }
+
+        /* Lado do Chat */
+        #chat-container { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            background: #121212; 
+        }
+        
+        #area-chat { 
+            flex: 1; 
+            padding: 20px; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+            /* Leve efeito de scanline/ruído no fundo do chat */
+            background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.01) 2px, rgba(255,255,255,0.01) 4px);
+        }
+        
+        #input-area { 
+            padding: 15px; 
+            background: #0a0a0a; 
+            border-top: 2px solid #5e0b0f; 
+            display: flex; 
+            gap: 10px; 
+        }
+        
+        #input-mensagem { 
+            flex: 1; 
+            padding: 10px; 
+            border: 1px solid #333; 
+            background: #1a1a1a; 
+            color: #eaddc5; 
+            font-family: 'Courier Prime', monospace;
+            outline: none;
+        }
+        #input-mensagem:focus {
+            border-color: #c5a059;
+        }
+
+        button.btn-padrao { 
+            padding: 10px 15px; 
+            border: none; 
+            background: #5e0b0f; /* Vermelho veludo */
+            color: #eaddc5; 
+            cursor: pointer; 
+            font-family: 'Cinzel', serif;
+            font-weight: bold;
+            letter-spacing: 1px;
+            transition: 0.2s;
+        }
+        button.btn-padrao:hover { 
+            background: #851217; 
+        }
+
+        /* Tela de Entrada (Overlay) */
+        #overlay-entrada { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.95); 
+            display: flex; justify-content: center; align-items: center; z-index: 10; 
+        }
+        
+        .card-entrada {
+            background: #111;
+            padding: 40px;
+            border: 2px solid #c5a059;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 0 30px rgba(197, 160, 89, 0.1);
+        }
+
+        .card-entrada h2 {
+            margin: 0;
+            font-family: 'Cinzel', serif;
+            color: #c5a059;
+            font-size: 28px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .mensagem { font-size: 15px; line-height: 1.5; }
+        .sistema { color: #888; font-size: 13px; text-align: center; margin-top: 10px; border-bottom: 1px dashed #333; padding-bottom: 10px; }
+        #lista-filmes::-webkit-scrollbar { width: 8px; }
+        #lista-filmes::-webkit-scrollbar-track { background: #111; border-radius: 4px; }
+        #lista-filmes::-webkit-scrollbar-thumb { background: #5e0b0f; border-radius: 4px; }
+        #lista-filmes::-webkit-scrollbar-thumb:hover { background: #c5a059; }
+
+        .item-filme {
+            display: flex;
+            align-items: center; /* Força o texto a ficar ao lado da imagem */
+            gap: 20px;
+            background: linear-gradient(90deg, #1a1a1a 0%, #0a0a0a 100%);
+            padding: 15px;
+            border: 1px solid #222;
+            border-left: 4px solid #333;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        
+        /* Efeito de destaque ao passar o mouse */
+        .item-filme:hover {
+            transform: translateX(5px);
+            border-color: #5e0b0f;
+            background: linear-gradient(90deg, #222 0%, #0a0a0a 100%);
+        }
+        
+        /* Destaque para o filme que está passando AGORA */
+        .item-filme.ativo {
+            border-left-color: #c5a059;
+            background: linear-gradient(90deg, #300b0d 0%, #0a0a0a 100%);
+            box-shadow: inset 0 0 15px rgba(197, 160, 89, 0.05);
+        }
+        
+        .item-filme img {
+            width: 80px;
+            height: 115px;
+            object-fit: cover;
+            border: 2px solid #444;
+            border-radius: 4px;
+            box-shadow: 3px 3px 10px rgba(0,0,0,0.8);
+        }
+        
+        .item-filme.ativo img {
+            border-color: #c5a059; /* Moldura dourada pro filme atual */
+        }
+        
+        .item-filme-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex: 1; 
+        }
+        
+        .horario {
+            color: #c5a059;
+            font-size: 15px;
+            font-family: 'Courier Prime', monospace;
+            font-weight: bold;
+            margin-bottom: 8px;
+            background: #000;
+            padding: 4px 10px;
+            border-radius: 4px;
+            border: 1px solid #333;
+            width: fit-content; /* Faz a caixinha abraçar o texto */
+            letter-spacing: 1px;
+        }
+        
+        .titulo-filme {
+            font-family: 'Cinzel', serif;
+            font-size: 18px;
+            color: #eaddc5;
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+        
+        .duracao-filme {
+            font-size: 13px;
+            color: #888;
+            font-family: 'Courier Prime', monospace;
+            border-top: 1px dashed #333;
+            padding-top: 6px;
+            width: fit-content;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="cinema-container">
+        <div id="overlay-entrada">
+            <div class="card-entrada">
+                <h2>CineChat Clássico</h2>
+                <input type="text" id="input-nick" placeholder="Seu apelido..." style="padding: 12px; border: 1px solid #c5a059; background: #000; color: #eaddc5; font-family: 'Courier Prime', monospace; text-align: center; font-size: 16px; outline: none;">
+                <button class="btn-padrao" onclick="entrarNaSala()">Admitir Bilhete</button>
+            </div>
+        </div>
+        
+       <video id="player-cinema" autoplay>
+    <track id="trilha-legenda" kind="subtitles" srclang="pt-BR" label="Português" default>
+</video>
+<div style="position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 5;">
+            <button class="btn-padrao" onclick="abrirProgramacao()">Cartaz 📅</button>
+            <button class="btn-padrao" onclick="toggleFullscreen()">⛶ Tela Cheia</button>
+        </div>
+
+        <div id="modal-programacao" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 20; justify-content: center; align-items: center;">
+            <div style="background: #111; border: 2px solid #c5a059; width: 80%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 0 30px rgba(197, 160, 89, 0.2);">
+                
+                <div style="padding: 15px; border-bottom: 1px solid #c5a059; display: flex; justify-content: space-between; align-items: center; background: #5e0b0f;">
+                    <h2 style="margin: 0; font-family: 'Cinzel', serif; color: #eaddc5;">Em Cartaz Hoje</h2>
+                    <button onclick="fecharProgramacao()" style="background: transparent; border: none; color: #eaddc5; font-size: 20px; cursor: pointer; font-weight: bold;">X</button>
+                </div>
+                
+                <div id="lista-filmes" style="padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px;"></div>
+                
+            </div>
+        </div>
+        
+    </div>
+
+    <div id="chat-container">
+        <div id="area-chat">
+            <div class="sistema">A sala de projeção está aberta. Silêncio durante a sessão.</div>
+        </div>
+        <div id="input-area">
+            <input type="text" id="input-mensagem" placeholder="Converse aqui..." onkeypress="verificarEnter(event)">
+            <button class="btn-padrao" onclick="enviarMensagem()">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const player = document.getElementById('player-cinema');
+        const overlay = document.getElementById('overlay-entrada');
+        
+        const salaAtual = 'terror'; 
+        let meuUsuario = '';
+
+        function entrarNaSala() {
+            const inputNick = document.getElementById('input-nick');
+            const nickDigitado = inputNick.value.trim();
+
+            if (nickDigitado === '') {
+                alert('O letreiro exige um nome!');
+                return; 
+            }
+
+            meuUsuario = nickDigitado; 
+            overlay.style.display = 'none';
+            socket.emit('entrar_sala', salaAtual);
+        }
+        function abrirProgramacao() {
+            document.getElementById('modal-programacao').style.display = 'flex';
+        }
+
+        function fecharProgramacao() {
+            document.getElementById('modal-programacao').style.display = 'none';
+        }
+
+        function montarCronograma(playlist, indiceAtual, inicioDoFilme) {
+            const containerLista = document.getElementById('lista-filmes');
+            containerLista.innerHTML = ''; 
+
+            let tempoAcumulado = inicioDoFilme; 
+
+            for (let i = 0; i < playlist.length; i++) {
+                const indexReal = (indiceAtual + i) % playlist.length;
+                const filme = playlist[indexReal];
+
+                const dataInicio = new Date(tempoAcumulado);
+                const horarioFormatado = dataInicio.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+                const divItem = document.createElement('div');
+                divItem.className = `item-filme ${i === 0 ? 'ativo' : ''}`; 
+
+                divItem.innerHTML = `
+                    <img src="${filme.poster}" alt="Pôster">
+                    <div class="item-filme-info">
+                        <div class="horario">${i === 0 ? '▶ AGORA' : horarioFormatado}</div>
+                        <div style="font-family: 'Cinzel', serif;">${filme.titulo}</div>
+                        <div style="font-size: 12px; color: #888; margin-top: 5px;">Duração: ${Math.floor(filme.duracao / 60)} min</div>
+                    </div>
+                `;
+                containerLista.appendChild(divItem);
+                tempoAcumulado += filme.duracao * 1000; 
+            }
+        }
+        // --- LÓGICA DO FULLSCREEN ---
+        function toggleFullscreen() {
+            const cinemaContainer = document.getElementById('cinema-container');
+            
+            // Verifica se já existe um elemento em tela cheia
+            if (!document.fullscreenElement) {
+                // Solicita tela cheia apenas para a div do cinema (esconde o chat)
+                cinemaContainer.requestFullscreen().catch(err => {
+                    console.error(`Erro ao ativar tela cheia: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        function atualizarLegenda(urlLegenda) {
+            let trackAntiga = document.getElementById('trilha-legenda');
+            
+            // 1. Remove a legenda do filme anterior
+            if (trackAntiga) {
+                player.removeChild(trackAntiga);
+            }
+
+            // 2. Se o novo filme tiver uma legenda cadastrada, cria a tag do zero
+            if (urlLegenda && urlLegenda.trim() !== '') {
+                let novaTrack = document.createElement('track');
+                novaTrack.id = 'trilha-legenda';
+                novaTrack.kind = 'subtitles';
+                novaTrack.srclang = 'pt-BR';
+                novaTrack.label = 'Português';
+                novaTrack.src = urlLegenda;
+                novaTrack.default = true;
+                
+                player.appendChild(novaTrack);
+
+                // 3. Força a engine do navegador a mostrar o texto na tela
+                setTimeout(() => {
+                    if (player.textTracks.length > 0) {
+                        player.textTracks[0].mode = 'showing';
+                    }
+                }, 100);
+            }
+        }
+
+        // Permite dar dois cliques no vídeo para ativar/desativar a tela cheia
+        player.addEventListener('dblclick', toggleFullscreen);
+        // ----------------------------
+
+        socket.on('status_video_atual', (dados) => {
+            player.src = dados.url;
+            atualizarLegenda(dados.legenda);
+           
+            montarCronograma(dados.playlist, dados.indiceAtual, dados.inicioDoFilme);
+            // Só tenta manipular o tempo DOPOIS que o navegador carregar os metadados do vídeo
+            player.onloadedmetadata = () => {
+                player.currentTime = dados.tempoAtual;
+                
+                player.play().then(() => {
+                    adicionarMensagemSistema(`Rolo de filme sincronizado: ${dados.titulo}`);
+                }).catch(erro => {
+                    console.error("Autoplay bloqueado pelo navegador:", erro);
+                    adicionarMensagemSistema(`Clique na tela para iniciar: ${dados.titulo}`);
+                });
+            };
+
+            // Se o link estiver quebrado ou retornar HTML, o erro cai aqui em vez de explodir o DOM
+            player.onerror = () => {
+                console.error("Erro ao carregar a mídia. O link pode estar quebrado:", dados.url);
+                adicionarMensagemSistema(`[Erro] O rolo de filme de ${dados.titulo} está danificado.`);
+            };
+        });
+
+        socket.on('troca_de_filme', (dados) => {
+            player.src = dados.url;
+             atualizarLegenda(dados.legenda);
+            player.currentTime = 0;
+            player.play();
+            adicionarMensagemSistema(`As cortinas se abrem para: ${dados.titulo}`);
+        });
+
+        function enviarMensagem() {
+            const input = document.getElementById('input-mensagem');
+            const texto = input.value.trim();
+            
+            if(texto !== '') {
+                socket.emit('enviar_mensagem', {
+                    sala: salaAtual,
+                    usuario: meuUsuario,
+                    texto: texto
+                });
+                input.value = '';
+            }
+        }
+
+        function verificarEnter(event) {
+            if (event.key === 'Enter') enviarMensagem();
+        }
+
+        socket.on('nova_mensagem', (dados) => {
+            const chatDiv = document.getElementById('area-chat');
+            const novaLinha = document.createElement('div');
+            novaLinha.className = 'mensagem';
+            // O nome do usuário fica dourado para destacar no chat retrô
+            novaLinha.innerHTML = `<strong style="color: #c5a059;">${dados.usuario}:</strong> ${dados.texto}`;
+            
+            chatDiv.appendChild(novaLinha);
+            chatDiv.scrollTop = chatDiv.scrollHeight;
+        });
+
+        function adicionarMensagemSistema(texto) {
+            const chatDiv = document.getElementById('area-chat');
+            const novaLinha = document.createElement('div');
+            novaLinha.className = 'sistema';
+            novaLinha.innerText = texto;
+            chatDiv.appendChild(novaLinha);
+            chatDiv.scrollTop = chatDiv.scrollHeight;
+        }
+    </script>
+</body>
+</html>
