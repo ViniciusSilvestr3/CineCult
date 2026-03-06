@@ -56,21 +56,21 @@ const salasDeCinema = {
         url: "https://archive.org/download/dr..-jekyll.-and.-mr..-hyde.-1931/Dr.%20Jekyll%20And%20Mr.%20Hyde%20%281931%29/mp4/Dr..Jekyll.And.Mr..Hyde.1931.mp4",
         legenda: "/subtitles/jekyll.vtt",
         poster:
-          "https://archive.org/services/img/dr..-jekyll.-and.-mr..-hyde.-1931",
+          "https://www.themoviedb.org/t/p/w600_and_h900_face/fRKR4HlpPtNBBWbCwJo6rMxKSyy.jpg",
         duracao: 5880,
       },
       {
         titulo: "Frankenstein (1931)",
         url: "https://archive.org/download/frankenstein.-1931/Frankenstein%20%281931%29/Frankenstein.1931.mp4",
         legenda: "/subtitles/frankenstein.vtt",
-        poster: "https://archive.org/services/img/frankenstein.-1931",
+        poster: "https://www.themoviedb.org/t/p/w600_and_h900_face/mu6wHwH0IwCCaEYtpqujuPJYat1.jpg",
         duracao: 4260,
       },
       {
         titulo: "Onibaba (1964)",
         url: "https://archive.org/download/onibaba.-1964_202511/Onibaba%20%281964%29/mp4/Onibaba.1964.ia.mp4",
         legenda: "/subtitles/onibaba.vtt",
-        poster: "https://archive.org/services/img/onibaba.-1964_202511",
+        poster: "https://www.themoviedb.org/t/p/w600_and_h900_face/b14LU070wRIiX0PbSLcMgmX1tpi.jpg",
         duracao: 6180,
       },
       {
@@ -78,7 +78,7 @@ const salasDeCinema = {
         url: "https://dn721903.ca.archive.org/0/items/night-of-the-living-dead-1968-english/Night%20of%20the%20Living%20Dead%20%281968%29%20English.mp4",
         legenda: "/subtitles/night-of-the-living-dead.vtt",
         poster:
-          "https://archive.org/services/img/night-of-the-living-dead-1968-english",
+          "https://www.themoviedb.org/t/p/w600_and_h900_face/cFnQNwS8AVfRhSSOOkttLJOYvs4.jpg",
         duracao: 5760,
       },
       {
@@ -86,14 +86,14 @@ const salasDeCinema = {
         url: "https://archive.org/download/DasKabinettdesDoktorCaligariTheCabinetofDrCaligari/The_Cabinet_of_Dr._Caligari_512kb.mp4",
         legenda: "/subtitles/drcaligari.vtt",
         poster:
-          "https://archive.org/services/img/DasKabinettdesDoktorCaligariTheCabinetofDrCaligari",
+          "https://www.themoviedb.org/t/p/w600_and_h900_face/j09TT0S1crBSYjPu14vgzSSFqFo.jpg",
         duracao: 4380,
       },
       {
         titulo: "Drácula (1931)",
         url: "https://archive.org/download/dracula.-1931/Dracula%20%281931%29/Dracula.1931.mp4",
         legenda: "/subtitles/dracula.vtt",
-        poster: "https://archive.org/services/img/dracula.-1931",
+        poster: "https://www.themoviedb.org/t/p/w600_and_h900_face/e8XjFqHMm1uTQ6vBDdwHkDsCVtT.jpg",
         duracao: 4500,
       },
       {
@@ -101,9 +101,23 @@ const salasDeCinema = {
         url: "https://archive.org/download/silent-die-nibelungen-siegfried/Die%20Nibelungen%3A%20Siegfried.mp4",
         legenda: "/subtitles/nibelungos.vtt",
         poster:
-          "https://archive.org/services/img/silent-die-nibelungen-siegfried",
+          "https://www.themoviedb.org/t/p/w600_and_h900_face/2jERXQVDkX0boSjQOzE9ZyDg8DC.jpg",
         duracao: 7200,
       },
+      {
+        titulo: "O Retrato de Dorian Gray (1945)",
+        url: "https://archive.org/download/dorian-gray-1945/Dorian%20Gray%201945.mp4",
+        legenda: "/subtitles/dorian-gray.vtt",
+        poster: "https://www.themoviedb.org/t/p/w600_and_h900_face/3VW9IAPwlsp5O47Ile5GzLGDcqp.jpg",
+        duracao: 5400,
+      },
+      {
+        titulo: "O Fantasma da Ópera (1925)",
+        url: "https://archive.org/download/ThePhantomoftheOpera/Phantom_of_the_Opera_512kb.mp4",
+        legenda: "/subtitles/phantom.vtt",  
+        poster: "https://www.themoviedb.org/t/p/w600_and_h900_face/gqTSBFPSCMzRACkFF2MepIqp4Gi.jpg",
+        duracao: 5400,
+      }
     ],
   },
 };
@@ -136,11 +150,13 @@ io.on("connection", (socket) => {
   socket.on("entrar_sala", (idSala) => {
     if (salasDeCinema[idSala]) {
       socket.join(idSala);
+      socket.salaAtual = idSala;
 
       const sala = salasDeCinema[idSala];
       const filme = sala.playlist[sala.indiceAtual];
       const tempoAtual = (Date.now() - sala.inicioDoFilme) / 1000;
-
+    const qtdEspectadores = io.sockets.adapter.rooms.get(idSala).size;
+      io.to(idSala).emit("atualizar_contador", qtdEspectadores);
       socket.emit("status_video_atual", {
         titulo: filme.titulo,
         url: filme.url,
@@ -194,6 +210,12 @@ io.on("connection", (socket) => {
   // É importante limpar o registro do usuário quando ele sair para liberar memória da VPS/Render
   socket.on("disconnect", () => {
     cooldownUsuarios.delete(socket.id);
+    if (socket.salaAtual) {
+      const sala = io.sockets.adapter.rooms.get(socket.salaAtual);
+      const qtdEspectadores = sala ? sala.size : 0;
+      io.to(socket.salaAtual).emit("atualizar_contador", qtdEspectadores);
+    }
+    
   });
 });
 

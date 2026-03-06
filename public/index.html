@@ -326,6 +326,92 @@
         padding-top: 6px;
         width: fit-content;
       }
+      /* --- O CSS DA DIV QUE LIMPAMOS ACIMA (Desktop Padrão) --- */
+      #botoes-flutuantes {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        display: flex;
+        gap: 10px;
+        z-index: 5;
+      }
+
+      /* =========================================
+         MODO MOBILE (Telas menores que 768px)
+         ========================================= */
+      @media (max-width: 768px) {
+        /* 1. Quebra a tela ao meio (Vídeo em cima, Chat embaixo) */
+        body {
+          flex-direction: column;
+        }
+
+        #cinema-container {
+          flex: none;
+          height: 40vh; /* O vídeo ocupa 40% da altura da tela */
+          border-right: none;
+          border-bottom: 3px solid #c5a059;
+        }
+
+        #chat-container {
+          flex: none;
+          height: 60vh; /* O chat ocupa os 60% restantes */
+        }
+
+        /* 2. Encolhe os painéis flutuantes para não cobrirem o vídeo todo */
+        #volume-container {
+          top: 10px;
+          left: 10px;
+          padding: 4px 10px;
+        }
+        
+        #contador-container {
+          top: 10px;
+          right: 10px;
+          padding: 4px 10px;
+        }
+
+        #controle-volume {
+          width: 50px; /* Slider de volume mais curto */
+        }
+
+        /* 3. Ajusta os botões inferiores */
+        #botoes-flutuantes {
+          bottom: 10px;
+          right: 10px;
+          gap: 5px;
+        }
+
+        .btn-padrao {
+          padding: 6px 10px;
+          font-size: 12px; /* Reduz a fonte do botão */
+        }
+
+        /* 4. Aperta os modais (Entrada e Cartaz) para caberem na tela estreita */
+        .card-entrada {
+          width: 85%;
+          padding: 20px;
+        }
+        
+        .card-entrada h2 {
+          font-size: 22px;
+        }
+
+        #modal-programacao > div {
+          width: 95% !important;
+          max-height: 90vh !important;
+        }
+
+        /* Reorganiza a lista de filmes do cartaz para formato vertical */
+        .item-filme {
+          flex-direction: column;
+          text-align: center;
+          gap: 10px;
+        }
+        
+        .horario, .duracao-filme {
+          margin: 0 auto;
+        }
+      }
     </style>
   </head>
   <body>
@@ -375,27 +461,19 @@
           oninput="alterarVolume(this.value)"
         />
       </div>
-
-      <div
-        style="
-          position: absolute;
-          bottom: 20px;
-          right: 20px;
-          display: flex;
-          gap: 10px;
-          z-index: 5;
-        "
-      >
-        <button class="btn-padrao" onclick="abrirProgramacao()">
-          Cartaz 📅
-        </button>
-        <button class="btn-padrao" onclick="toggleFullscreen()">
-          ⛶ Tela Cheia
-        </button>
+      <div id="contador-container" style="position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 8px; background: rgba(10, 10, 10, 0.85); padding: 8px 18px; border: 1px solid #444; border-radius: 25px; z-index: 5; box-shadow: 0 4px 15px rgba(0,0,0,0.8); color: #c5a059; font-family: 'Courier Prime', monospace; font-size: 14px; transition: border-color 0.3s; user-select: none;">
+          <span style="font-size: 16px;">👁️</span>
+          <span id="numero-espectadores" style="font-weight: bold; font-size: 16px;">0</span> 
+         
+      </div>
+     <div id="botoes-flutuantes">
+        <button class="btn-padrao" onclick="abrirProgramacao()">Cartaz 📅</button>
+        <button class="btn-padrao" onclick="toggleFullscreen()">⛶ Tela Cheia</button>
       </div>
 
       <div
         id="modal-programacao"
+        onclick="fecharSeClicarFora(event)"
         style="
           display: none;
           position: absolute;
@@ -493,7 +571,7 @@
       
       const salaAtual = "terror";
       let meuUsuario = "";
-
+        
       function entrarNaSala() {
         const inputNick = document.getElementById("input-nick");
         const nickDigitado = inputNick.value.trim();
@@ -618,6 +696,10 @@
       // Permite dar dois cliques no vídeo para ativar/desativar a tela cheia
       player.addEventListener("dblclick", toggleFullscreen);
       // ----------------------------
+      // --- ATUALIZA O CONTADOR DE ESPECTADORES ---
+      socket.on("atualizar_contador", (quantidade) => {
+        document.getElementById("numero-espectadores").innerText = quantidade;
+      });
 
       socket.on("status_video_atual", (dados) => {
         player.src = dados.url;
@@ -707,6 +789,16 @@
         chatDiv.appendChild(novaLinha);
         chatDiv.scrollTop = chatDiv.scrollHeight;
       }
+      function fecharSeClicarFora(event) {
+        // Se o elemento exato que recebeu o clique for o fundo escuro (e não os filmes), ele fecha.
+        if (event.target.id === "modal-programacao") {
+          fecharProgramacao();
+        }
+      }
+      socket.emit("filme_atual", {
+      ...filmeAtual,
+      isLoop: !programacao.find(f => agora >= f.inicio && agora < f.fim) 
+    });
     </script>
   </body>
 </html>
