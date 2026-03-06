@@ -105,13 +105,6 @@ const salasDeCinema = {
         duracao: 7200,
       },
       {
-        titulo: "O Retrato de Dorian Gray (1945)",
-        url: "https://archive.org/download/dorian-gray-1945/Dorian%20Gray%201945.mp4",
-        legenda: "/subtitles/dorian-gray.vtt",
-        poster: "https://www.themoviedb.org/t/p/w600_and_h900_face/3VW9IAPwlsp5O47Ile5GzLGDcqp.jpg",
-        duracao: 5400,
-      },
-      {
         titulo: "O Fantasma da Ópera (1925)",
         url: "https://archive.org/download/ThePhantomoftheOpera/Phantom_of_the_Opera_512kb.mp4",
         legenda: "/subtitles/phantom.vtt",  
